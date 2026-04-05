@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="InventoryService/InventoryService.csproj" />
+  <Project Path="NotificationService/NotificationService.csproj" />
+  <Project Path="OrderService/OrderService.csproj" />
+  <Project Path="SmartCommerce.Contracts/SmartCommerce.Contracts.csproj" />
+</Solution>
