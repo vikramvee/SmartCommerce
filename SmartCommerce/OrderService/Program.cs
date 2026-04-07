@@ -1,41 +1,80 @@
-var builder = WebApplication.CreateBuilder(args);
+using Amazon.DynamoDBv2;
+using Amazon.Extensions.NETCore.Setup;
+using Serilog;
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+// ─── Bootstrap logger (catches startup errors) ───────────────────────────────
+Log.Logger = new LoggerConfiguration()
+    .WriteTo.Console()
+    .CreateBootstrapLogger();
 
-var app = builder.Build();
+Log.Information("Starting OrderService...");
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+try
 {
-    app.MapOpenApi();
+    var builder = WebApplication.CreateBuilder(args);
+
+    // ─── Serilog ─────────────────────────────────────────────────────────────
+    builder.Host.UseSerilog((ctx, services, cfg) =>
+        cfg.ReadFrom.Configuration(ctx.Configuration)
+           .ReadFrom.Services(services)
+           .Enrich.FromLogContext()
+           .Enrich.WithProperty("Service", "OrderService")
+           .WriteTo.Console());
+
+    // ─── AWS + DynamoDB ───────────────────────────────────────────────────────
+    var awsOptions = builder.Configuration.GetAWSOptions();
+    builder.Services.AddDefaultAWSOptions(awsOptions);
+    builder.Services.AddAWSService<IAmazonDynamoDB>();
+
+    // ─── App Services ─────────────────────────────────────────────────────────
+    builder.Services.AddControllers();
+    builder.Services.AddEndpointsApiExplorer();
+    builder.Services.AddSwaggerGen(c =>
+    {
+        c.SwaggerDoc("v1", new()
+        {
+            Title   = "SmartCommerce - Order Service",
+            Version = "v1",
+            Description = "Multi-tenant Order Management API"
+        });
+    });
+
+    // ─── Health Checks ────────────────────────────────────────────────────────
+    builder.Services.AddHealthChecks();
+
+    var app = builder.Build();
+
+    // ─── Middleware Pipeline ──────────────────────────────────────────────────
+    app.UseSerilogRequestLogging(opts =>
+    {
+        opts.MessageTemplate =
+            "HTTP {RequestMethod} {RequestPath} → {StatusCode} ({Elapsed:0.0000}ms)";
+    });
+
+    if (app.Environment.IsDevelopment())
+    {
+        app.UseSwagger();
+        app.UseSwaggerUI(c =>
+        {
+            c.SwaggerEndpoint("/swagger/v1/swagger.json", "Order Service v1");
+            c.RoutePrefix = string.Empty; // Swagger at root
+        });
+    }
+
+    app.UseAuthorization();
+    app.MapControllers();
+    app.MapHealthChecks("/health");
+
+    app.Run();
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "OrderService failed to start");
+    return 1;
+}
+finally
+{
+    Log.CloseAndFlush();
 }
 
-app.UseHttpsRedirection();
-
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
-
-app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
+return 0;
