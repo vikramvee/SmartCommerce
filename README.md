@@ -16,23 +16,23 @@ Built as a portfolio project targeting **Staff/Principal Engineer** roles and **
         ┌────────────────┼─────────────────┐
         ▼                ▼                 ▼
 ┌──────────────┐ ┌──────────────┐ ┌──────────────────┐
-│ OrderService │ │InventorySvc  │ │NotificationService│
-│ ASP.NET Core │ │ ASP.NET Core │ │   Lambda .NET     │
-│  + DynamoDB  │ │  + Aurora    │ │   + SES/SNS       │
+│ OrderService    │ │InventorySvc     │ │NotificationService│
+│ ASP.NET Core    │ │ ASP.NET Core    │ │   Lambda .NET     │
+│  + DynamoDB     │ │  + Aurora       │ │   + SES/SNS       │
 └──────┬───────┘ └──────┬───────┘ └──────────────────┘
-       │                │
+       │                   │
        └────────────────┘
                 │
     ┌───────────▼───────────┐
-    │   SNS / SQS Event Bus  │
-    │  (Saga Choreography)   │
+    │   SNS / SQS Event Bus      │
+    │  (Saga Choreography)       │
     └───────────────────────┘
                 │
     ┌───────────▼───────────┐
-    │     GenAI Layer        │
-    │  Amazon Bedrock        │
-    │  Knowledge Bases       │
-    │  Agents + Guardrails   │
+    │     GenAI Layer            │
+    │  Amazon Bedrock            │
+    │  Knowledge Bases           │
+    │  Agents + Guardrails       │
     └───────────────────────┘
 ```
 
@@ -45,8 +45,8 @@ Built as a portfolio project targeting **Staff/Principal Engineer** roles and **
 | Language | C# / .NET 10 |
 | Services | ASP.NET Core 8 Web API |
 | Database | Amazon DynamoDB (single-table design) |
-| Messaging | AWS SNS + SQS |
-| GenAI | Amazon Bedrock, Knowledge Bases, Agents |
+| Messaging| AWS SNS + SQS |
+| GenAI    | Amazon Bedrock, Knowledge Bases, Agents |
 | Observability | Serilog + AWS CloudWatch + X-Ray |
 | IaC | AWS CDK (C#) |
 | CI/CD | GitHub Actions |
