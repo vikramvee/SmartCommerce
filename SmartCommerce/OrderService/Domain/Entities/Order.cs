@@ -1,54 +1,80 @@
-using Amazon.DynamoDBv2.DataModel;
-using SmartCommerce.Contracts.Enums;
+using OrderService.Domain.Common;
+using OrderService.Domain.Entities;
+using OrderService.Domain.Events;
+using SmartCommerce.Domain.Orders.Events;
 
-namespace OrderService.Domain.Entities;
+namespace SmartCommerce.Domain.Entities;
 
-// Single-table design:
-// PK = TENANT#{tenantId}#ORDER#{orderId}
-// SK = METADATA
-// GSI1PK = CUSTOMER#{customerId}  ← query by customer
-// GSI1SK = ORDER#{orderId}
-
-[DynamoDBTable("SmartCommerce")]
-public class Order
+public sealed class Order : AggregateRoot
 {
-    [DynamoDBHashKey("PK")]
-    public string PK { get; set; } = default!;
+    private readonly List<OrderItem> _items = [];
 
-    [DynamoDBRangeKey("SK")]
-    public string SK { get; set; } = "METADATA";
+    public String OrderId { get; private set; } = default!;
+    public string TenantId { get; private set; } = default!;
+    public string CustomerId { get; private set; } = default!;
+    public OrderStatus Status { get; private set; }
+    public IReadOnlyList<OrderItem> Items => _items.AsReadOnly();
+    public decimal Total => _items.Sum(i => i.LineTotal);
+    public DateTime CreatedAt { get; private set; }
+    public DateTime? UpdatedAt { get; private set; }
 
-    [DynamoDBGlobalSecondaryIndexHashKey("GSI1", AttributeName = "GSI1PK")]
-    public string GSI1PK { get; set; } = default!;
+    private Order() { } // DynamoDB deserialization
 
-    [DynamoDBGlobalSecondaryIndexRangeKey("GSI1", AttributeName = "GSI1SK")]
-    public string GSI1SK { get; set; } = default!;
 
-    public Guid OrderId { get; set; }
-    public string TenantId { get; set; } = default!;
-    public string CustomerId { get; set; } = default!;
-    public OrderStatus Status { get; set; }
-    public decimal TotalAmount { get; set; }
-    public DateTime CreatedAt { get; set; }
-    public DateTime UpdatedAt { get; set; }
-
-    // Factory — encapsulates key construction
-    public static Order Create(string tenantId, string customerId, decimal total)
+    public static Order Create(string tenantId, string customerId, IEnumerable<OrderItem> items)
     {
-        var orderId = Guid.NewGuid();
-        return new Order
+        ArgumentException.ThrowIfNullOrWhiteSpace(tenantId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(customerId);
+
+        var itemList = items?.ToList() ?? [];
+        if (itemList.Count == 0)
+            throw new ArgumentException("Order must contain at least one item.", nameof(items));
+
+        var order = new Order
         {
-            OrderId    = orderId,
-            TenantId   = tenantId,
+            OrderId = Guid.NewGuid().ToString(),
+            TenantId = tenantId,
             CustomerId = customerId,
-            TotalAmount = total,
-            Status     = OrderStatus.Pending,
-            CreatedAt  = DateTime.UtcNow,
-            UpdatedAt  = DateTime.UtcNow,
-            PK         = $"TENANT#{tenantId}#ORDER#{orderId}",
-            SK         = "METADATA",
-            GSI1PK     = $"CUSTOMER#{customerId}",
-            GSI1SK     = $"ORDER#{orderId}",
+            Status = OrderStatus.Pending,
+            CreatedAt = DateTime.UtcNow
         };
+
+        order._items.AddRange(itemList);
+
+        order.RaiseDomainEvent(new OrderPlacedEvent
+        {
+            OrderId = order.OrderId,
+            TenantId = order.TenantId,
+            TotalAmount = order.Total
+        });
+
+        return order;
+    }
+
+    public void Confirm()
+    {
+        if (Status != OrderStatus.Pending)
+            throw new InvalidOperationException($"Cannot confirm an order in '{Status}' status.");
+
+        Status = OrderStatus.Confirmed;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    public void Cancel(string reason)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+
+        if (Status is OrderStatus.Shipped or OrderStatus.Delivered)
+            throw new InvalidOperationException($"Cannot cancel an order in '{Status}' status.");
+
+        Status = OrderStatus.Cancelled;
+        UpdatedAt = DateTime.UtcNow;
+
+        RaiseDomainEvent(new OrderCancelledEvent
+        {
+            OrderId = OrderId,
+            TenantId = TenantId,
+            Reason = reason
+        });
     }
 }

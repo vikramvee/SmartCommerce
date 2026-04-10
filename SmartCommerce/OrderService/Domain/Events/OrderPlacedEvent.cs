@@ -1,13 +1,16 @@
-namespace SmartCommerce.Contracts.Events;
+using OrderService.Domain.Common;
 
-public record OrderPlacedEvent
+namespace SmartCommerce.Domain.Orders.Events;
+
+public sealed record OrderPlacedEvent : DomainEvent
 {
-    public Guid OrderId { get; init; }
+    public String OrderId { get; init; } = string.Empty;
     public string TenantId { get; init; } = default!;
     public string CustomerId { get; init; } = default!;
     public List<OrderLineItem> Items { get; init; } = [];
     public decimal TotalAmount { get; init; }
     public DateTime PlacedAt { get; init; } = DateTime.UtcNow;
+    public override string EventType => throw new NotImplementedException();
 }
 
 public record OrderLineItem

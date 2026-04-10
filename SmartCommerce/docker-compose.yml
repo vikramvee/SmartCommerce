@@ -1,6 +1,34 @@
-version: '3.8'
-
 services:
+
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    container_name: smartcommerce-dynamo
+    ports:
+      - "8000:8000"
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-inMemory"]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:8000 > /dev/null; if [ $$? -le 1 ]; then exit 0; fi; exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    networks:
+      - smartcommerce-net
+
+  dynamodb-admin:
+    image: aaronshaf/dynamodb-admin
+    container_name: smartcommerce-dynamo-admin
+    ports:
+      - "8001:8001"
+    environment:
+      - DYNAMO_ENDPOINT=http://dynamodb-local:8000
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=local
+      - AWS_SECRET_ACCESS_KEY=local
+    depends_on:
+      - dynamodb-local
+    networks:
+      - smartcommerce-net
 
   order-service:
     build:
@@ -17,35 +45,6 @@ services:
     depends_on:
       dynamodb-local:
         condition: service_healthy
-    networks:
-      - smartcommerce-net
-
-  dynamodb-local:
-    image: amazon/dynamodb-local:latest
-    container_name: smartcommerce-dynamo
-    ports:
-      - "8000:8000"
-    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-inMemory"]
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/shell || exit 1"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-    networks:
-      - smartcommerce-net
-
-  dynamodb-admin:
-    image: aaronshaf/dynamodb-admin
-    container_name: smartcommerce-dynamo-admin
-    ports:
-      - "8001:8001"
-    environment:
-      - DYNAMO_ENDPOINT=http://dynamodb-local:8000
-      - AWS_REGION=us-east-1
-      - AWS_ACCESS_KEY_ID=local
-      - AWS_SECRET_ACCESS_KEY=local
-    depends_on:
-      - dynamodb-local
     networks:
       - smartcommerce-net
 
