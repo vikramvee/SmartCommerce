@@ -1,5 +1,7 @@
 using Amazon.DynamoDBv2;
 using Amazon.Extensions.NETCore.Setup;
+using OrderService.Application.Interfaces;
+using OrderService.Infrastructure.DynamoDB;
 using Serilog;
 
 // ─── Bootstrap logger (catches startup errors) ───────────────────────────────
@@ -24,7 +26,24 @@ try
     // ─── AWS + DynamoDB ───────────────────────────────────────────────────────
     var awsOptions = builder.Configuration.GetAWSOptions();
     builder.Services.AddDefaultAWSOptions(awsOptions);
-    builder.Services.AddAWSService<IAmazonDynamoDB>();
+    builder.Services.AddSingleton<IAmazonDynamoDB>(_ =>
+    {
+        var settings = builder.Configuration
+            .GetSection(DynamoDbSettings.SectionName)
+            .Get<DynamoDbSettings>();
+
+        var config = new AmazonDynamoDBConfig
+        {
+            RegionEndpoint = Amazon.RegionEndpoint.USEast1
+        };
+
+        // Use local endpoint if configured (dev/test)
+        if (!string.IsNullOrEmpty(settings?.ServiceURL))
+            config.ServiceURL = settings.ServiceURL;
+
+        return new AmazonDynamoDBClient("local", "local", config);
+    });
+    builder.Services.AddScoped<IOrderRepository, DynamoDbOrderRepository>();
 
     // ─── App Services ─────────────────────────────────────────────────────────
     builder.Services.AddControllers();

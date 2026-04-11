@@ -27,4 +27,17 @@ public sealed class OrderItem
             UnitPrice = unitPrice
         };
     }
+
+    internal static OrderItem Reconstitute(
+    Guid itemId, string productId, string productName, int quantity, decimal unitPrice)
+    {
+        return new OrderItem
+        {
+            ItemId      = itemId,
+            ProductId   = productId,
+            ProductName = productName,
+            Quantity    = quantity,
+            UnitPrice   = unitPrice
+        };
+    }
 }

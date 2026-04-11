@@ -25,13 +25,15 @@ public class OrderDynamoDbModel
     [DynamoDBGlobalSecondaryIndexRangeKey("GSI1", AttributeName = "GSI1SK")]
     public string GSI1SK { get; set; } = default!;
 
-    public Guid OrderId { get; set; }
+    public string OrderId { get; set; }
     public string TenantId { get; set; } = default!;
     public string CustomerId { get; set; } = default!;
     public OrderStatus Status { get; set; }
     public decimal TotalAmount { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+    public List<OrderItemDynamoDbModel> Items { get; set; } = [];
+    public string EntityType { get; set; } = "ORDER";
 
     // Factory — encapsulates key construction
     // public static Order Create(string tenantId, string customerId, decimal total)

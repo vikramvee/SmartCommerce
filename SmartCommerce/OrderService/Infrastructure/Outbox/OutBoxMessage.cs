@@ -15,7 +15,8 @@ public class OutboxMessage
     [DynamoDBRangeKey("SK")]
     public string SK { get; set; } = "PENDING";
 
-    public Guid MessageId { get; set; }
+    public string MessageId { get; set; } = default!;
+    public string TenantId { get; set; } = default!;
     public string EventType { get; set; } = default!;
     public string Payload { get; set; } = default!;   // JSON
     public string Status { get; set; } = "PENDING";
@@ -23,15 +24,16 @@ public class OutboxMessage
     public DateTime? ProcessedAt { get; set; }
     public int RetryCount { get; set; }
 
-    public static OutboxMessage Create(string eventType, string payload) =>
+    public static OutboxMessage Create(string tenantId, string eventType, string payload) =>
         new()
         {
-            MessageId = Guid.NewGuid(),
+            MessageId = Guid.NewGuid().ToString(),
             EventType = eventType,
             Payload   = payload,
             Status    = "PENDING",
             CreatedAt = DateTime.UtcNow,
             PK        = $"OUTBOX#{Guid.NewGuid()}",
             SK        = "PENDING",
+            TenantId = tenantId
         };
 }

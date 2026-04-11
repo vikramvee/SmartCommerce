@@ -9,7 +9,7 @@ public sealed class Order : AggregateRoot
 {
     private readonly List<OrderItem> _items = [];
 
-    public String OrderId { get; private set; } = default!;
+    public string OrderId { get; private set; } = default!;
     public string TenantId { get; private set; } = default!;
     public string CustomerId { get; private set; } = default!;
     public OrderStatus Status { get; private set; }
@@ -76,5 +76,23 @@ public sealed class Order : AggregateRoot
             TenantId = TenantId,
             Reason = reason
         });
+    }
+
+    internal static Order Reconstitute(
+    string orderId, string tenantId, string customerId,
+    OrderStatus status, DateTime createdAt, DateTime? updatedAt,
+    IEnumerable<OrderItem> items)
+    {
+        var order = new Order
+        {
+            OrderId    = orderId,
+            TenantId   = tenantId,
+            CustomerId = customerId,
+            Status     = status,
+            CreatedAt  = createdAt,
+            UpdatedAt  = updatedAt
+        };
+        order._items.AddRange(items);
+        return order;
     }
 }
