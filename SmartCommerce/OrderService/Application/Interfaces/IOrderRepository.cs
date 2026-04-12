@@ -1,5 +1,4 @@
 using OrderService.Domain.Entities;
-using SmartCommerce.Domain.Entities;
 
 namespace OrderService.Application.Interfaces;
 

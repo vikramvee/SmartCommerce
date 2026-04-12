@@ -1,9 +1,10 @@
 using OrderService.Domain.Common;
 using OrderService.Domain.Entities;
 using OrderService.Domain.Events;
-using SmartCommerce.Domain.Orders.Events;
+using OrderService.Domain.Orders.Events;
 
-namespace SmartCommerce.Domain.Entities;
+
+namespace OrderService.Domain.Entities;
 
 public sealed class Order : AggregateRoot
 {

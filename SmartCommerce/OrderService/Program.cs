@@ -3,6 +3,9 @@ using Amazon.Extensions.NETCore.Setup;
 using OrderService.Application.Interfaces;
 using OrderService.Infrastructure.DynamoDB;
 using Serilog;
+using FluentValidation;
+using OrderService.Application.Behaviours;
+using MediatR;
 
 // ─── Bootstrap logger (catches startup errors) ───────────────────────────────
 Log.Logger = new LoggerConfiguration()
@@ -47,6 +50,10 @@ try
 
     // ─── App Services ─────────────────────────────────────────────────────────
     builder.Services.AddControllers();
+
+    builder.Services.Configure<Microsoft.AspNetCore.Mvc.ApiBehaviorOptions>(options =>
+    options.SuppressModelStateInvalidFilter = true);
+
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(c =>
     {
@@ -57,6 +64,19 @@ try
             Description = "Multi-tenant Order Management API"
         });
     });
+
+    //_____MEdiatR__________________________
+    // MediatR — scans assembly for all handlers
+    builder.Services.AddMediatR(cfg =>
+        cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
+
+    // Validation pipeline — runs before every handler
+    builder.Services.AddTransient(
+        typeof(IPipelineBehavior<,>),
+        typeof(ValidationBehaviour<,>));
+
+    // FluentValidation — scans assembly for all validators
+    builder.Services.AddValidatorsFromAssembly(typeof(Program).Assembly);
 
     // ─── Health Checks ────────────────────────────────────────────────────────
     builder.Services.AddHealthChecks();

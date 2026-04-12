@@ -5,7 +5,7 @@ using Microsoft.Extensions.Options;
 using OrderService.Application.Interfaces;
 using OrderService.Domain.Entities;
 using OrderService.Infrastructure.Outbox;
-using SmartCommerce.Domain.Entities;
+
 
 namespace OrderService.Infrastructure.DynamoDB;
 

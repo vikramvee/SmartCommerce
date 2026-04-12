@@ -1,5 +1,5 @@
 using Amazon.DynamoDBv2.DataModel;
-using SmartCommerce.Domain.Entities;
+
 
 
 namespace OrderService.Infrastructure.DynamoDB;

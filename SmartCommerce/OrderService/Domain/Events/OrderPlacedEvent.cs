@@ -1,6 +1,6 @@
 using OrderService.Domain.Common;
 
-namespace SmartCommerce.Domain.Orders.Events;
+namespace OrderService.Domain.Orders.Events;
 
 public sealed record OrderPlacedEvent : DomainEvent
 {
@@ -10,7 +10,7 @@ public sealed record OrderPlacedEvent : DomainEvent
     public List<OrderLineItem> Items { get; init; } = [];
     public decimal TotalAmount { get; init; }
     public DateTime PlacedAt { get; init; } = DateTime.UtcNow;
-    public override string EventType => throw new NotImplementedException();
+    public override string EventType => "order.placed";
 }
 
 public record OrderLineItem

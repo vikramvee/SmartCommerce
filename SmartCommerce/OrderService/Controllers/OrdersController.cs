@@ -1,19 +1,21 @@
 using Microsoft.AspNetCore.Mvc;
+using MediatR;
+using OrderService.Application.Commands;
 
 namespace OrderService.Controllers;
 
-[ApiController]
 [Route("api/[controller]")]
 public class OrdersController : ControllerBase
 {
+    private readonly IMediator _mediator;
     private readonly ILogger<OrdersController> _logger;
 
-    public OrdersController(ILogger<OrdersController> logger)
+    public OrdersController(IMediator mediator, ILogger<OrdersController> logger)
     {
-        _logger = logger;
+        _mediator = mediator;
+        _logger   = logger;
     }
 
-    // GET /api/orders/health-check
     [HttpGet("health-check")]
     public IActionResult HealthCheck()
     {
@@ -26,26 +28,29 @@ public class OrdersController : ControllerBase
         });
     }
 
-    // POST /api/orders  ← full implementation comes in Week 2
     [HttpPost]
-    public IActionResult PlaceOrder([FromBody] PlaceOrderRequest request)
+    public async Task<IActionResult> PlaceOrder(
+        [FromBody] PlaceOrderRequest request,
+        CancellationToken cancellationToken)
     {
-        _logger.LogInformation(
-            "Order received for tenant {TenantId}, customer {CustomerId}",
-            request.TenantId,
-            request.CustomerId);
+        var tenantId = Request.Headers["X-Tenant-Id"].FirstOrDefault()
+            ?? "tenant-alpha";
 
-        // Week 2: wire up PlaceOrderCommand + DynamoDB + Outbox
-        return Accepted(new
-        {
-            Message    = "Order received — processing",
-            TenantId   = request.TenantId,
-            CustomerId = request.CustomerId,
-        });
+        Console.WriteLine($"DEBUG TenantId: '{tenantId}'");
+
+        var command = new PlaceOrderCommand(
+            tenantId,
+            request.CustomerId,
+            request.Items.Select(i => new PlaceOrderItemDto(
+                i.ProductId,
+                i.ProductName,
+                i.Quantity,
+                i.UnitPrice
+            )).ToList()
+        );
+
+        var result = await _mediator.Send(command, cancellationToken);
+
+        return CreatedAtAction(nameof(PlaceOrder), new { id = result.OrderId }, result);
     }
 }
-
-public record PlaceOrderRequest(
-    string TenantId,
-    string CustomerId,
-    decimal TotalAmount);

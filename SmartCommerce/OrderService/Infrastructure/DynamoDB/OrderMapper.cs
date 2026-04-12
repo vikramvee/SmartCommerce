@@ -1,5 +1,5 @@
 using OrderService.Domain.Entities;
-using SmartCommerce.Domain.Entities;
+
 
 namespace OrderService.Infrastructure.DynamoDB;
 
