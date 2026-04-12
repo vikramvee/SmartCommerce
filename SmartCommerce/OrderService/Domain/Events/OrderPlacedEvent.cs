@@ -2,7 +2,7 @@ using OrderService.Domain.Common;
 
 namespace OrderService.Domain.Orders.Events;
 
-public sealed record OrderPlacedEvent : DomainEvent
+public sealed record OrderPlacedEvent : DomainEvent,ITenantEvent
 {
     public String OrderId { get; init; } = string.Empty;
     public string TenantId { get; init; } = default!;

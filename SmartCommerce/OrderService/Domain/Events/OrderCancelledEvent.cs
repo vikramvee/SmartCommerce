@@ -1,8 +1,8 @@
 using OrderService.Domain.Common;
 
-namespace OrderService.Domain.Events;
+namespace OrderService.Domain.Orders.Events;
 
-public sealed record OrderCancelledEvent : DomainEvent
+public sealed record OrderCancelledEvent : DomainEvent,ITenantEvent
 {
     public required String OrderId { get; init; }
     public required string TenantId { get; init; }

@@ -1,6 +1,5 @@
 using OrderService.Domain.Common;
 using OrderService.Domain.Entities;
-using OrderService.Domain.Events;
 using OrderService.Domain.Orders.Events;
 
 

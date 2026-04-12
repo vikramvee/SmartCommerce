@@ -6,6 +6,9 @@ using Serilog;
 using FluentValidation;
 using OrderService.Application.Behaviours;
 using MediatR;
+using Amazon.SimpleNotificationService;
+using OrderService.Infrastructure.Outbox;
+using OrderService.Infrastructure.Sns;
 
 // ─── Bootstrap logger (catches startup errors) ───────────────────────────────
 Log.Logger = new LoggerConfiguration()
@@ -47,6 +50,32 @@ try
         return new AmazonDynamoDBClient("local", "local", config);
     });
     builder.Services.AddScoped<IOrderRepository, DynamoDbOrderRepository>();
+
+    // SNS client
+    builder.Services.Configure<SnsSettings>(
+        builder.Configuration.GetSection(SnsSettings.SectionName));
+
+    builder.Services.AddSingleton<IAmazonSimpleNotificationService>(_ =>
+    {
+        var settings = builder.Configuration
+            .GetSection(SnsSettings.SectionName)
+            .Get<SnsSettings>();
+
+        var config = new AmazonSimpleNotificationServiceConfig
+        {
+            RegionEndpoint = Amazon.RegionEndpoint.USEast1
+        };
+
+        if (!string.IsNullOrEmpty(settings?.ServiceURL))
+            config.ServiceURL = settings.ServiceURL;
+
+        return new AmazonSimpleNotificationServiceClient("local", "local", config);
+    });
+
+    builder.Services.AddScoped<IEventPublisher, SnsEventPublisher>();
+
+    // Outbox processor — runs in background
+    builder.Services.AddHostedService<OutboxProcessor>();
 
     // ─── App Services ─────────────────────────────────────────────────────────
     builder.Services.AddControllers();
