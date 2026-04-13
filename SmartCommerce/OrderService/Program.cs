@@ -9,6 +9,10 @@ using MediatR;
 using Amazon.SimpleNotificationService;
 using OrderService.Infrastructure.Outbox;
 using OrderService.Infrastructure.Sns;
+using Amazon.SQS;
+using OrderService.Infrastructure.Sqs;
+using OrderService.Domain.Orders.Events;
+using OrderService.Application.EventHandlers;
 
 // ─── Bootstrap logger (catches startup errors) ───────────────────────────────
 Log.Logger = new LoggerConfiguration()
@@ -71,6 +75,34 @@ try
 
         return new AmazonSimpleNotificationServiceClient("local", "local", config);
     });
+
+    // SQS client
+    builder.Services.Configure<SqsSettings>(
+        builder.Configuration.GetSection(SqsSettings.SectionName));
+
+    builder.Services.AddSingleton<IAmazonSQS>(_ =>
+    {
+        var settings = builder.Configuration
+            .GetSection(SqsSettings.SectionName)
+            .Get<SqsSettings>();
+
+        var config = new AmazonSQSConfig
+        {
+            RegionEndpoint = Amazon.RegionEndpoint.USEast1
+        };
+
+        if (!string.IsNullOrEmpty(settings?.ServiceURL))
+            config.ServiceURL = settings.ServiceURL;
+
+        return new AmazonSQSClient("local", "local", config);
+    });
+
+    // Event handlers
+    builder.Services.AddScoped<IEventHandler<OrderPlacedEvent>, OrderPlacedEventHandler>();
+    builder.Services.AddScoped<IEventHandler<OrderCancelledEvent>, OrderCancelledEventHandler>();
+
+    // SQS consumer — runs in background
+    builder.Services.AddHostedService<SqsEventConsumer>();
 
     builder.Services.AddScoped<IEventPublisher, SnsEventPublisher>();
 
