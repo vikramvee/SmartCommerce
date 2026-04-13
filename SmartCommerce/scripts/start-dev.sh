@@ -2,7 +2,7 @@
 
 echo "Starting SmartCommerce dev environment..."
 
-docker compose up -d dynamodb-local
+docker compose up -d dynamodb-local localstack
 
 echo "Waiting for DynamoDB Local to be healthy..."
 until [ "$(docker inspect --format='{{.State.Health.Status}}' smartcommerce-dynamo)" = "healthy" ]; do
@@ -14,6 +14,13 @@ bash scripts/create-tables.sh
 
 echo "Seeding data..."
 bash scripts/seed-data.sh
+
+echo "Waiting for LocalStack SNS to be ready..."
+until aws sns list-topics --endpoint-url http://localhost:4566 --region us-east-1 > /dev/null 2>&1; do
+  echo "  LocalStack not ready yet, retrying in 3s..."
+  sleep 3
+done
+echo "LocalStack ready."
 
 echo "Creating SNS/SQS resources..."
 bash scripts/create-sns-sqs.sh

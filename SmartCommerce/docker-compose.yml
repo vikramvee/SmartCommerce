@@ -31,7 +31,7 @@ services:
       - smartcommerce-net
 
   localstack:
-    image: localstack/localstack:latest
+    image: localstack/localstack:3
     container_name: smartcommerce-localstack
     ports:
       - "4566:4566"
