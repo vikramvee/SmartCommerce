@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SmartCommerce — Week 2 Sequence Diagram</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.6.1/mermaid.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .header h1 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: #60a5fa;
+      letter-spacing: 0.5px;
+    }
+
+    .header p {
+      margin-top: 8px;
+      color: #94a3b8;
+      font-size: 0.95rem;
+    }
+
+    .badge {
+      display: inline-block;
+      background: #1e3a5f;
+      color: #60a5fa;
+      border: 1px solid #2563eb;
+      border-radius: 20px;
+      padding: 3px 14px;
+      font-size: 0.8rem;
+      margin: 4px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+
+    .tab {
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #94a3b8;
+      padding: 8px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.88rem;
+      transition: all 0.2s;
+    }
+
+    .tab:hover { border-color: #60a5fa; color: #60a5fa; }
+
+    .tab.active {
+      background: #1e3a5f;
+      border-color: #60a5fa;
+      color: #60a5fa;
+      font-weight: 600;
+    }
+
+    .diagram-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+      display: none;
+    }
+
+    .diagram-card.active { display: block; }
+
+    .diagram-card h2 {
+      font-size: 1.1rem;
+      color: #60a5fa;
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+
+    .diagram-card p {
+      color: #94a3b8;
+      font-size: 0.85rem;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+
+    .mermaid {
+      background: #ffffff;
+      border-radius: 8px;
+      padding: 16px;
+      overflow-x: auto;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.82rem;
+      color: #94a3b8;
+    }
+
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .footer {
+      text-align: center;
+      color: #475569;
+      font-size: 0.8rem;
+      margin-top: 24px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>SmartCommerce — Event-Driven Pipeline</h1>
+    <p>Week 2 — Full Workflow Sequence Diagrams</p>
+    <div style="margin-top:12px;">
+      <span class="badge">C# .NET 10</span>
+      <span class="badge">DynamoDB</span>
+      <span class="badge">MediatR</span>
+      <span class="badge">SNS/SQS</span>
+      <span class="badge">Outbox Pattern</span>
+      <span class="badge">DDD</span>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="showDiagram('full')">Full Pipeline</div>
+    <div class="tab" onclick="showDiagram('command')">Command Flow</div>
+    <div class="tab" onclick="showDiagram('outbox')">Outbox Processor</div>
+    <div class="tab" onclick="showDiagram('consumer')">SQS Consumer</div>
+  </div>
+
+  <!-- FULL PIPELINE -->
+  <div class="diagram-card active" id="full">
+    <h2>Full End-to-End Pipeline</h2>
+    <p>Complete flow from HTTP request to event handler — showing all layers: API, Application, Domain, Infrastructure, and Messaging.</p>
+    <div class="mermaid">
+sequenceDiagram
+    autonumber
+    actor Client
+    participant API as OrdersController
+    participant MediatR as MediatR Pipeline
+    participant Validator as ValidationBehaviour
+    participant Handler as PlaceOrderCommandHandler
+    participant Domain as Order Aggregate
+    participant Repo as DynamoDbOrderRepository
+    participant DynOrders as DynamoDB<br/>Orders Table
+    participant DynOutbox as DynamoDB<br/>Outbox Table
+    participant OutboxProc as OutboxProcessor<br/>(BackgroundService)
+    participant SNS as SNS Topic
+    participant SQS as SQS Queue
+    participant Consumer as SqsEventConsumer<br/>(BackgroundService)
+    participant EventHandler as OrderPlacedEventHandler
+
+    Client->>API: POST /api/orders<br/>{ customerId, items }<br/>X-Tenant-Id: tenant-alpha
+    API->>API: Extract TenantId from header
+    API->>MediatR: Send(PlaceOrderCommand)
+    MediatR->>Validator: Validate(command)
+    Validator-->>MediatR: Valid ✅
+    MediatR->>Handler: Handle(command)
+    Handler->>Domain: Order.Create(tenantId, customerId, items)
+    Domain->>Domain: Validate invariants
+    Domain->>Domain: RaiseDomainEvent(OrderPlacedEvent)
+    Domain-->>Handler: Order aggregate
+    Handler->>Repo: SaveAsync(order)
+    Repo->>Repo: Map Order → DynamoDbModel
+    Repo->>Repo: Map DomainEvent → OutboxMessage
+    Repo->>DynOrders: TransactWriteItems ─┐ atomic
+    Repo->>DynOutbox: TransactWriteItems ─┘ transaction
+    Repo->>Domain: ClearDomainEvents()
+    Repo-->>Handler: Done
+    Handler-->>API: PlaceOrderResult(orderId, total)
+    API-->>Client: 201 Created { orderId, total }
+
+    Note over OutboxProc: Polls every 10 seconds
+    OutboxProc->>DynOutbox: Query PK=OUTBOX#UNPUBLISHED
+    DynOutbox-->>OutboxProc: [OutboxMessage]
+    OutboxProc->>OutboxProc: Deserialize → IDomainEvent
+    OutboxProc->>SNS: Publish(OrderPlacedEvent)
+    SNS-->>OutboxProc: MessageId
+    OutboxProc->>DynOutbox: TransactWrite:<br/>DELETE UNPUBLISHED<br/>PUT PUBLISHED
+    
+    SNS->>SQS: Fanout delivery
+
+    Note over Consumer: Long polling (20s)
+    Consumer->>SQS: ReceiveMessage
+    SQS-->>Consumer: [SnsEnvelope]
+    Consumer->>Consumer: Unwrap SNS envelope
+    Consumer->>Consumer: Extract EventType
+    Consumer->>EventHandler: HandleAsync(OrderPlacedEvent)
+    EventHandler->>EventHandler: Log + process event
+    EventHandler-->>Consumer: Done
+    Consumer->>SQS: DeleteMessage ✅
+    </div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div>HTTP Layer</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#8b5cf6"></div>Application Layer (MediatR)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#10b981"></div>Domain Layer</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div>Infrastructure (DynamoDB)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div>Messaging (SNS/SQS)</div>
+    </div>
+  </div>
+
+  <!-- COMMAND FLOW -->
+  <div class="diagram-card" id="command">
+    <h2>Command Flow — PlaceOrder</h2>
+    <p>Zoomed in on the MediatR command pipeline: validation behaviour, handler, domain aggregate, and transactional repository write.</p>
+    <div class="mermaid">
+sequenceDiagram
+    autonumber
+    actor Client
+    participant API as OrdersController
+    participant MediatR as MediatR
+    participant Validator as ValidationBehaviour<br/>(IPipelineBehavior)
+    participant Handler as PlaceOrderCommandHandler
+    participant Domain as Order Aggregate
+    participant Repo as DynamoDbOrderRepository
+    participant Dynamo as DynamoDB<br/>(TransactWriteItems)
+
+    Client->>API: POST /api/orders
+    Note over API: PlaceOrderRequest (no TenantId)<br/>TenantId from X-Tenant-Id header
+    API->>API: Build PlaceOrderCommand<br/>+ inject TenantId
+    API->>MediatR: mediator.Send(PlaceOrderCommand)
+
+    rect rgb(240, 248, 255)
+        Note over MediatR, Validator: Pipeline Behaviour runs BEFORE handler
+        MediatR->>Validator: Handle(command, next)
+        Validator->>Validator: Run FluentValidation rules
+        alt Validation fails
+            Validator-->>API: throw ValidationException
+            API-->>Client: 400 Bad Request
+        else Validation passes
+            Validator->>Handler: next() — call handler
+        end
+    end
+
+    rect rgb(240, 255, 240)
+        Note over Handler, Domain: Domain Layer — pure business logic
+        Handler->>Domain: Order.Create(tenantId, customerId, items)
+        Domain->>Domain: Guard: items not empty
+        Domain->>Domain: Assign OrderId, Status=Pending
+        Domain->>Domain: RaiseDomainEvent(OrderPlacedEvent)
+        Domain-->>Handler: Order (with domain events)
+    end
+
+    rect rgb(255, 248, 220)
+        Note over Repo, Dynamo: Infrastructure — atomic write
+        Handler->>Repo: SaveAsync(order)
+        Repo->>Repo: ToModel(order) → OrderDynamoDbModel
+        Repo->>Repo: ToModel(event) → OutboxDynamoDbModel
+        Repo->>Dynamo: TransactWriteItems<br/>[PUT Order, PUT OutboxMsg]
+        Dynamo-->>Repo: Success (both or neither)
+        Repo->>Domain: ClearDomainEvents()
+    end
+
+    Handler-->>API: PlaceOrderResult
+    API-->>Client: 201 Created
+    </div>
+  </div>
+
+  <!-- OUTBOX PROCESSOR -->
+  <div class="diagram-card" id="outbox">
+    <h2>Outbox Processor — Reliable Event Publishing</h2>
+    <p>BackgroundService that polls DynamoDB for unpublished events and delivers them to SNS atomically. Guarantees no event loss even if SNS is temporarily unavailable.</p>
+    <div class="mermaid">
+sequenceDiagram
+    autonumber
+    participant Timer as Timer<br/>(10s interval)
+    participant Proc as OutboxProcessor
+    participant DynOutbox as DynamoDB<br/>Outbox Table
+    participant SNS as SNS Topic<br/>(smartcommerce-orders)
+    participant SQS as SQS Queue
+
+    loop Every 10 seconds
+        Timer->>Proc: ExecuteAsync tick
+        Proc->>DynOutbox: Query<br/>PK = OUTBOX#UNPUBLISHED<br/>Limit = 10
+
+        alt No messages
+            DynOutbox-->>Proc: [] empty
+            Note over Proc: Sleep 10s, retry
+        else Messages found
+            DynOutbox-->>Proc: [OutboxMessage, ...]
+            
+            loop For each message
+                Proc->>Proc: Deserialize payload<br/>→ IDomainEvent
+
+                Proc->>SNS: Publish(payload, MessageAttributes)
+                Note over SNS: MessageAttributes:<br/>EventType = order.placed<br/>TenantId = tenant-alpha
+
+                alt SNS publish fails
+                    SNS-->>Proc: Exception
+                    Note over Proc: Log error, skip delete<br/>Retry on next poll
+                else SNS publish succeeds
+                    SNS-->>Proc: MessageId ✅
+                    SNS->>SQS: Fanout to subscribers
+
+                    Proc->>DynOutbox: TransactWriteItems<br/>DELETE OUTBOX#UNPUBLISHED<br/>PUT OUTBOX#PUBLISHED<br/>(with ProcessedAt)
+                    Note over Proc: Atomic — if this fails,<br/>message retried next poll<br/>(at-least-once delivery)
+                end
+            end
+        end
+    end
+    </div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#10b981"></div>Happy path</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div>Failure path — auto retry on next poll</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div>At-least-once guarantee</div>
+    </div>
+  </div>
+
+  <!-- SQS CONSUMER -->
+  <div class="diagram-card" id="consumer">
+    <h2>SQS Event Consumer — Inbound Event Processing</h2>
+    <p>BackgroundService that long-polls SQS, unwraps the SNS envelope, deserializes the domain event, and dispatches to the correct event handler. Delete-on-success guarantees no message loss.</p>
+    <div class="mermaid">
+sequenceDiagram
+    autonumber
+    participant Consumer as SqsEventConsumer
+    participant SQS as SQS Queue<br/>(smartcommerce-orders-queue)
+    participant DLQ as Dead Letter Queue<br/>(smartcommerce-orders-dlq)
+    participant Scope as DI Scope
+    participant Dispatcher as DispatchEventAsync
+    participant Handler as IEventHandler&lt;TEvent&gt;
+
+    loop Long polling (20s wait)
+        Consumer->>SQS: ReceiveMessage<br/>MaxMessages=10<br/>WaitTimeSeconds=20
+
+        alt Queue empty
+            SQS-->>Consumer: [] (after 20s)
+            Note over Consumer: Loop again
+        else Messages received
+            SQS-->>Consumer: [Message, ...]
+            Note over SQS: Message visibility<br/>hidden from other consumers
+
+            loop For each message
+                Consumer->>Consumer: Deserialize SnsEnvelope
+                Consumer->>Consumer: Extract EventType<br/>from MessageAttributes
+
+                Consumer->>Scope: CreateScope()
+                Consumer->>Dispatcher: DispatchEventAsync(eventType, payload)
+
+                alt EventType = order.placed
+                    Dispatcher->>Dispatcher: Deserialize → OrderPlacedEvent
+                    Dispatcher->>Handler: HandleAsync(OrderPlacedEvent)
+                    Handler->>Handler: Log + process
+                    Handler-->>Dispatcher: Done ✅
+                else EventType = order.cancelled
+                    Dispatcher->>Handler: HandleAsync(OrderCancelledEvent)
+                    Handler-->>Dispatcher: Done ✅
+                else Unknown EventType
+                    Note over Dispatcher: Skip — log warning
+                end
+
+                alt Processing succeeded
+                    Consumer->>SQS: DeleteMessage ✅
+                    Note over SQS: Message permanently removed
+                else Processing failed (exception)
+                    Note over Consumer: Do NOT delete message
+                    Note over SQS: Visibility timeout expires<br/>Message reappears in queue
+                    Note over SQS: After max retries →<br/>moved to DLQ
+                    SQS->>DLQ: Move to Dead Letter Queue
+                end
+            end
+        end
+    end
+    </div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#10b981"></div>Success path — delete from queue</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div>Failure path — visibility timeout → retry → DLQ</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#8b5cf6"></div>Long polling — reduces empty API calls</div>
+    </div>
+  </div>
+
+  <div class="footer">
+    SmartCommerce Project — Week 2 | C# .NET 10 · DynamoDB · SNS · SQS · MediatR · Outbox Pattern
+  </div>
+
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'default',
+      sequence: {
+        actorMargin: 60,
+        messageMargin: 35,
+        mirrorActors: false,
+        fontSize: 13,
+        useMaxWidth: true,
+      }
+    });
+
+    function showDiagram(id) {
+      document.querySelectorAll('.diagram-card').forEach(d => d.classList.remove('active'));
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+      event.target.classList.add('active');
+    }
+  </script>
+</body>
+</html>
