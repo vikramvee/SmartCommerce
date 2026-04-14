@@ -33,9 +33,8 @@ try
            .Enrich.WithProperty("Service", "OrderService")
            .WriteTo.Console());
 
-    // ─── AWS + DynamoDB ───────────────────────────────────────────────────────
-    var awsOptions = builder.Configuration.GetAWSOptions();
-    builder.Services.AddDefaultAWSOptions(awsOptions);
+    // ─── AWS + DynamoDB ───────────────────────────────────────────────────────    
+    builder.Services.Configure<DynamoDbSettings>(builder.Configuration.GetSection(DynamoDbSettings.SectionName));
     builder.Services.AddSingleton<IAmazonDynamoDB>(_ =>
     {
         var settings = builder.Configuration

@@ -50,7 +50,6 @@ public sealed class OutboxProcessor : BackgroundService
         var dynamo         = scope.ServiceProvider.GetRequiredService<IAmazonDynamoDB>();
         var eventPublisher = scope.ServiceProvider.GetRequiredService<IEventPublisher>();
 
-        // Query unpublished outbox messages
         var response = await dynamo.QueryAsync(new QueryRequest
         {
             TableName              = _settings.OutboxTableName,
@@ -59,12 +58,16 @@ public sealed class OutboxProcessor : BackgroundService
             {
                 [":pk"] = new AttributeValue { S = "OUTBOX#UNPUBLISHED" }
             },
-            Limit = 10  // process in batches
+            // Oldest first — ensures FIFO processing order per tenant
+            ScanIndexForward = true,
+            Limit = 10
         }, ct);
 
         if (response.Items.Count == 0) return;
 
-        _logger.LogInformation("OutboxProcessor found {Count} messages to process.", response.Items.Count);
+        _logger.LogInformation(
+            "OutboxProcessor found {Count} message(s) to process.",
+            response.Items.Count);
 
         foreach (var item in response.Items)
         {
@@ -83,18 +86,17 @@ public sealed class OutboxProcessor : BackgroundService
         var payload   = item["Payload"].S;
         var sk        = item["SK"].S;
         var tenantId  = item["TenantId"].S;
+        var createdAt = item["CreatedAt"].S;
 
         try
         {
-            // Deserialize and publish
             var domainEvent = DeserializeEvent(eventType, payload);
             if (domainEvent is not null)
             {
                 await publisher.PublishAsync(domainEvent, ct);
             }
 
-            // Mark as processed — move from UNPUBLISHED to PUBLISHED
-            await MarkProcessedAsync(dynamo, item, messageId, tenantId, sk, ct);
+            await MarkProcessedAsync(dynamo, messageId, tenantId, sk, createdAt, ct);
 
             _logger.LogInformation(
                 "Outbox message {MessageId} ({EventType}) published successfully.",
@@ -110,24 +112,32 @@ public sealed class OutboxProcessor : BackgroundService
 
     private async Task MarkProcessedAsync(
         IAmazonDynamoDB dynamo,
-        Dictionary<string, AttributeValue> item,
-        string messageId, string tenantId, string sk,
+        string messageId,
+        string tenantId,
+        string sk,
+        string createdAt,
         CancellationToken ct)
     {
         var processedAt = DateTime.UtcNow.ToString("O");
 
-        // Write processed copy
-        var processedItem = new Dictionary<string, AttributeValue>(item)
+        // Build the PUBLISHED item cleanly — don't copy stale attributes
+        var publishedItem = new Dictionary<string, AttributeValue>
         {
             ["PK"]          = new AttributeValue { S = "OUTBOX#PUBLISHED" },
-            ["ProcessedAt"] = new AttributeValue { S = processedAt }
+            ["SK"]          = new AttributeValue { S = sk },
+            ["GSI1PK"]      = new AttributeValue { S = $"TENANT#{tenantId}" },
+            ["GSI1SK"]      = new AttributeValue { S = $"OUTBOX#{messageId}" },
+            ["MessageId"]   = new AttributeValue { S = messageId },
+            ["TenantId"]    = new AttributeValue { S = tenantId },
+            ["CreatedAt"]   = new AttributeValue { S = createdAt },
+            ["ProcessedAt"] = new AttributeValue { S = processedAt },
+            ["EntityType"]  = new AttributeValue { S = "OUTBOX" }
         };
 
         await dynamo.TransactWriteItemsAsync(new TransactWriteItemsRequest
         {
-            TransactItems = new List<TransactWriteItem>
-            {
-                // Delete from UNPUBLISHED
+            TransactItems =
+            [
                 new() { Delete = new Delete
                 {
                     TableName = _settings.OutboxTableName,
@@ -137,13 +147,12 @@ public sealed class OutboxProcessor : BackgroundService
                         ["SK"] = new AttributeValue { S = sk }
                     }
                 }},
-                // Insert into PUBLISHED
                 new() { Put = new Put
                 {
                     TableName = _settings.OutboxTableName,
-                    Item      = processedItem
+                    Item      = publishedItem
                 }}
-            }
+            ]
         }, ct);
     }
 
@@ -153,7 +162,7 @@ public sealed class OutboxProcessor : BackgroundService
         {
             "order.placed"    => JsonSerializer.Deserialize<OrderService.Domain.Orders.Events.OrderPlacedEvent>(payload),
             "order.cancelled" => JsonSerializer.Deserialize<OrderService.Domain.Orders.Events.OrderCancelledEvent>(payload),
-            _ => null
+            _                 => null
         };
     }
 }
