@@ -1,6 +1,7 @@
 using MediatR;
 using OrderService.Application.Interfaces;
 using OrderService.Domain.Entities;
+using OrderService.Infrastructure.Correlation;
 
 namespace OrderService.Application.Commands;
 
@@ -9,13 +10,17 @@ public sealed class PlaceOrderCommandHandler
 {
     private readonly IOrderRepository _repository;
     private readonly ILogger<PlaceOrderCommandHandler> _logger;
+     private readonly CorrelationIdAccessor _correlationIdAccessor;
+    
 
     public PlaceOrderCommandHandler(
         IOrderRepository repository,
-        ILogger<PlaceOrderCommandHandler> logger)
+        ILogger<PlaceOrderCommandHandler> logger,
+        CorrelationIdAccessor correlationIdAccessor)
     {
         _repository = repository;
         _logger     = logger;
+        _correlationIdAccessor = correlationIdAccessor;
     }
 
     public async Task<PlaceOrderResult> Handle(
@@ -31,6 +36,10 @@ public sealed class PlaceOrderCommandHandler
         ).ToList();
 
         var order = Order.Create(command.TenantId, command.CustomerId, items);
+        
+        // Stamp correlation ID onto all raised domain events
+        order.StampCorrelationId(_correlationIdAccessor.CorrelationId);
+
 
         await _repository.SaveAsync(order, cancellationToken);
 

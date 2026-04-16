@@ -13,6 +13,7 @@ using Amazon.SQS;
 using OrderService.Infrastructure.Sqs;
 using OrderService.Domain.Orders.Events;
 using OrderService.Application.EventHandlers;
+using OrderService.Infrastructure.Correlation;
 
 // ─── Bootstrap logger (catches startup errors) ───────────────────────────────
 Log.Logger = new LoggerConfiguration()
@@ -31,7 +32,10 @@ try
            .ReadFrom.Services(services)
            .Enrich.FromLogContext()
            .Enrich.WithProperty("Service", "OrderService")
-           .WriteTo.Console());
+           );
+
+
+    builder.Services.AddScoped<CorrelationIdAccessor>();
 
     // ─── AWS + DynamoDB ───────────────────────────────────────────────────────    
     builder.Services.Configure<DynamoDbSettings>(builder.Configuration.GetSection(DynamoDbSettings.SectionName));
@@ -144,11 +148,18 @@ try
     var app = builder.Build();
 
     // ─── Middleware Pipeline ──────────────────────────────────────────────────
-    app.UseSerilogRequestLogging(opts =>
+   app.UseSerilogRequestLogging(opts =>
     {
         opts.MessageTemplate =
             "HTTP {RequestMethod} {RequestPath} → {StatusCode} ({Elapsed:0.0000}ms)";
+        opts.EnrichDiagnosticContext = (diagCtx, httpCtx) =>
+        {
+            diagCtx.Set("CorrelationId",
+                httpCtx.Response.Headers["X-Correlation-Id"].FirstOrDefault() ?? string.Empty);
+        };
     });
+
+    app.UseMiddleware<CorrelationIdMiddleware>();
 
     if (app.Environment.IsDevelopment())
     {

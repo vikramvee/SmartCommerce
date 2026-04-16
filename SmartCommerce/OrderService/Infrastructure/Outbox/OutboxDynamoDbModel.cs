@@ -13,4 +13,5 @@ public sealed class OutboxDynamoDbModel
     public string CreatedAt { get; set; } = default!;
     public string? ProcessedAt { get; set; }
     public string EntityType { get; set; } = "OUTBOX";
+    public string CorrelationId { get; set; } = string.Empty;
 }

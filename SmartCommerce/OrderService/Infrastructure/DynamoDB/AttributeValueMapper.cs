@@ -33,16 +33,17 @@ public static class AttributeValueMapper
     {
         return new Dictionary<string, AttributeValue>
         {
-            ["PK"]          = new() { S = m.PK },
-            ["SK"]          = new() { S = m.SK },
-            ["GSI1PK"]      = new() { S = m.GSI1PK },
-            ["GSI1SK"]      = new() { S = m.GSI1SK },
-            ["MessageId"]   = new() { S = m.MessageId },
-            ["TenantId"]    = new() { S = m.TenantId },
-            ["EventType"]   = new() { S = m.EventType },
-            ["Payload"]     = new() { S = m.Payload },
-            ["CreatedAt"]   = new() { S = m.CreatedAt },
-            ["EntityType"]  = new() { S = m.EntityType }
+            ["PK"]            = new() { S = m.PK },
+            ["SK"]            = new() { S = m.SK },
+            ["GSI1PK"]        = new() { S = m.GSI1PK },
+            ["GSI1SK"]        = new() { S = m.GSI1SK },
+            ["MessageId"]     = new() { S = m.MessageId },
+            ["TenantId"]      = new() { S = m.TenantId },
+            ["EventType"]     = new() { S = m.EventType },
+            ["Payload"]       = new() { S = m.Payload },
+            ["CreatedAt"]     = new() { S = m.CreatedAt },
+            ["EntityType"]    = new() { S = m.EntityType },
+            ["CorrelationId"] = new() { S = m.CorrelationId }  // ← add
         };
     }
 

@@ -92,7 +92,8 @@ public sealed class DynamoDbOrderRepository : IOrderRepository
             var outboxMessage = OutboxMessage.Create(
                 order.TenantId,
                 domainEvent.EventType,
-                JsonSerializer.Serialize(domainEvent, domainEvent.GetType())
+                JsonSerializer.Serialize(domainEvent, domainEvent.GetType()),
+                domainEvent.CorrelationId
             );
 
             var outboxModel = OutboxMapper.ToModel(outboxMessage);

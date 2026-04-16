@@ -88,25 +88,31 @@ public sealed class OutboxProcessor : BackgroundService
         var tenantId  = item["TenantId"].S;
         var createdAt = item["CreatedAt"].S;
 
-        try
+        var correlationId = item.TryGetValue("CorrelationId", out var cid)
+                    ? cid.S : Guid.NewGuid().ToString();
+
+        using (Serilog.Context.LogContext.PushProperty("CorrelationId", correlationId))
         {
-            var domainEvent = DeserializeEvent(eventType, payload);
-            if (domainEvent is not null)
+            try
             {
-                await publisher.PublishAsync(domainEvent, ct);
+                var domainEvent = DeserializeEvent(eventType, payload);
+                if (domainEvent is not null)
+                {
+                    await publisher.PublishAsync(domainEvent, ct);
+                }
+
+                await MarkProcessedAsync(dynamo, messageId, tenantId, sk, createdAt, ct);
+
+                _logger.LogInformation(
+                    "Outbox message {MessageId} ({EventType}) published successfully.",
+                    messageId, eventType);
             }
-
-            await MarkProcessedAsync(dynamo, messageId, tenantId, sk, createdAt, ct);
-
-            _logger.LogInformation(
-                "Outbox message {MessageId} ({EventType}) published successfully.",
-                messageId, eventType);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex,
-                "Failed to process outbox message {MessageId} ({EventType}).",
-                messageId, eventType);
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Failed to process outbox message {MessageId} ({EventType}).",
+                    messageId, eventType);
+            }
         }
     }
 

@@ -11,4 +11,13 @@ public abstract class AggregateRoot
 
     public void ClearDomainEvents()
         => _domainEvents.Clear();
+
+    public void StampCorrelationId(string correlationId)
+    {
+        for (int i = 0; i < _domainEvents.Count; i++)
+        {
+            if (_domainEvents[i] is DomainEvent e)
+                _domainEvents[i] = e with { CorrelationId = correlationId };
+        }
+    }
 }

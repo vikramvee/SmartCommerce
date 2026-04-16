@@ -24,16 +24,19 @@ public class OutboxMessage
     public DateTime? ProcessedAt { get; set; }
     public int RetryCount { get; set; }
 
-    public static OutboxMessage Create(string tenantId, string eventType, string payload) =>
+    public string CorrelationId { get; set; } = string.Empty;
+
+    public static OutboxMessage Create(string tenantId, string eventType, string payload, string correlationId) =>
         new()
         {
-            MessageId = Guid.NewGuid().ToString(),
-            EventType = eventType,
-            Payload   = payload,
-            Status    = "PENDING",
-            CreatedAt = DateTime.UtcNow,
-            PK        = $"OUTBOX#{Guid.NewGuid()}",
-            SK        = "PENDING",
-            TenantId = tenantId
+            MessageId     = Guid.NewGuid().ToString(),
+            EventType     = eventType,
+            Payload       = payload,
+            CorrelationId = correlationId,
+            Status        = "PENDING",
+            CreatedAt     = DateTime.UtcNow,
+            PK            = $"OUTBOX#{Guid.NewGuid()}",
+            SK            = "PENDING",
+            TenantId      = tenantId
         };
 }

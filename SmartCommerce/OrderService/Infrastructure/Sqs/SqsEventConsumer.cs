@@ -74,14 +74,13 @@ public sealed class SqsEventConsumer : BackgroundService
     }
 
     private async Task ProcessMessageAsync(
-        IServiceScope scope,
-        IAmazonSQS sqs,
-        Message message,
-        CancellationToken ct)
+    IServiceScope scope,
+    IAmazonSQS sqs,
+    Message message,
+    CancellationToken ct)
     {
         try
         {
-            // Unwrap SNS envelope
             var envelope = JsonSerializer.Deserialize<SnsEnvelope>(message.Body, _jsonOptions);
             if (envelope is null)
             {
@@ -89,27 +88,31 @@ public sealed class SqsEventConsumer : BackgroundService
                 return;
             }
 
-            // Extract event type from message attributes
             var eventType = envelope.MessageAttributes
                 ?.GetValueOrDefault("EventType")?.Value ?? string.Empty;
 
-            _logger.LogInformation(
-                "Processing SQS message. EventType: {EventType}, SNS MessageId: {MessageId}",
-                eventType, envelope.MessageId);
+            var correlationId = envelope.MessageAttributes
+                ?.GetValueOrDefault("CorrelationId")?.Value
+                ?? Guid.NewGuid().ToString();
 
-            await DispatchEventAsync(scope, eventType, envelope.Message, ct);
+            // Push BEFORE any logging so all lines carry the CorrelationId
+            using (Serilog.Context.LogContext.PushProperty("CorrelationId", correlationId))
+            {
+                _logger.LogInformation(
+                    "Processing SQS message. EventType: {EventType}, SNS MessageId: {MessageId}",
+                    eventType, envelope.MessageId);
 
-            // Delete from queue — only after successful processing
-            await sqs.DeleteMessageAsync(_settings.OrdersQueueUrl, message.ReceiptHandle, ct);
+                await DispatchEventAsync(scope, eventType, envelope.Message, ct);
+                await sqs.DeleteMessageAsync(_settings.OrdersQueueUrl, message.ReceiptHandle, ct);
 
-            _logger.LogInformation(
-                "SQS message processed and deleted. EventType: {EventType}", eventType);
+                _logger.LogInformation(
+                    "SQS message processed and deleted. EventType: {EventType}", eventType);
+            }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex,
                 "Failed to process SQS message {MessageId}. Will retry.", message.MessageId);
-            // Don't delete — message returns to queue after visibility timeout
         }
     }
 

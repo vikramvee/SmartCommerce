@@ -10,15 +10,16 @@ public static class OutboxMapper
 
         return new OutboxDynamoDbModel
         {
-            PK        = "OUTBOX#UNPUBLISHED",
-            SK        = $"{timestamp}#{message.MessageId}",
-            GSI1PK    = $"TENANT#{message.TenantId}",
-            GSI1SK    = $"OUTBOX#{message.MessageId}",
-            MessageId = message.MessageId,
-            TenantId  = message.TenantId,
-            EventType = message.EventType,
-            Payload   = message.Payload,
-            CreatedAt = timestamp
+            PK            = "OUTBOX#UNPUBLISHED",
+            SK            = $"{timestamp}#{message.MessageId}",
+            GSI1PK        = $"TENANT#{message.TenantId}",
+            GSI1SK        = $"OUTBOX#{message.MessageId}",
+            MessageId     = message.MessageId,
+            TenantId      = message.TenantId,
+            EventType     = message.EventType,
+            Payload       = message.Payload,
+            CreatedAt     = timestamp,
+            CorrelationId = message.CorrelationId  // ← add
         };
     }
 }

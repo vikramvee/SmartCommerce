@@ -42,6 +42,11 @@ public sealed class SnsEventPublisher : IEventPublisher
                 {
                     DataType    = "String",
                     StringValue = domainEvent is ITenantEvent te ? te.TenantId : "unknown"
+                },
+                ["CorrelationId"] = new MessageAttributeValue
+                {
+                    DataType    = "String",
+                    StringValue = domainEvent.CorrelationId
                 }
             }
         };
