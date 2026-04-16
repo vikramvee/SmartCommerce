@@ -4,6 +4,7 @@ using Amazon.SQS.Model;
 using Microsoft.Extensions.Options;
 using OrderService.Application.Interfaces;
 using OrderService.Domain.Orders.Events;
+using OrderService.Infrastructure.Idempotency;
 
 namespace OrderService.Infrastructure.Sqs;
 
@@ -98,6 +99,13 @@ public sealed class SqsEventConsumer : BackgroundService
             // Push BEFORE any logging so all lines carry the CorrelationId
             using (Serilog.Context.LogContext.PushProperty("CorrelationId", correlationId))
             {
+                var guard = scope.ServiceProvider.GetRequiredService<IdempotencyGuard>();
+                if (await guard.IsDuplicateAsync(envelope.MessageId, eventType, ct))
+                {
+                    // Duplicate — delete from queue and stop
+                    await sqs.DeleteMessageAsync(_settings.OrdersQueueUrl, message.ReceiptHandle, ct);
+                    return;
+                }
                 _logger.LogInformation(
                     "Processing SQS message. EventType: {EventType}, SNS MessageId: {MessageId}",
                     eventType, envelope.MessageId);

@@ -57,3 +57,17 @@ aws dynamodb create-table \
   --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5
 
 echo "Done. Tables created."
+
+echo "Creating SmartCommerce Idempotency table..."
+
+aws dynamodb create-table \
+  --endpoint-url $ENDPOINT \
+  --region $REGION \
+  --table-name SmartCommerce_Idempotency \
+  --attribute-definitions \
+    AttributeName=PK,AttributeType=S \
+  --key-schema \
+    AttributeName=PK,KeyType=HASH \
+  --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5
+
+echo "Idempotency table created."

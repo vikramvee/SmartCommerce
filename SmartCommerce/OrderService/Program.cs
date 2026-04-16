@@ -14,6 +14,7 @@ using OrderService.Infrastructure.Sqs;
 using OrderService.Domain.Orders.Events;
 using OrderService.Application.EventHandlers;
 using OrderService.Infrastructure.Correlation;
+using OrderService.Infrastructure.Idempotency;
 
 // ─── Bootstrap logger (catches startup errors) ───────────────────────────────
 Log.Logger = new LoggerConfiguration()
@@ -25,6 +26,11 @@ Log.Information("Starting OrderService...");
 try
 {
     var builder = WebApplication.CreateBuilder(args);
+
+    // Idempotency
+    builder.Services.Configure<IdempotencySettings>(
+        builder.Configuration.GetSection(IdempotencySettings.SectionName));
+    builder.Services.AddScoped<IdempotencyGuard>();
 
     // ─── Serilog ─────────────────────────────────────────────────────────────
     builder.Host.UseSerilog((ctx, services, cfg) =>
