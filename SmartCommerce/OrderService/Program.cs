@@ -15,6 +15,7 @@ using OrderService.Domain.Orders.Events;
 using OrderService.Application.EventHandlers;
 using OrderService.Infrastructure.Correlation;
 using OrderService.Infrastructure.Idempotency;
+using OrderService.Application.Dispatching;
 
 // ─── Bootstrap logger (catches startup errors) ───────────────────────────────
 Log.Logger = new LoggerConfiguration()
@@ -106,9 +107,12 @@ try
         return new AmazonSQSClient("local", "local", config);
     });
 
-    // Event handlers
-    builder.Services.AddScoped<IEventHandler<OrderPlacedEvent>, OrderPlacedEventHandler>();
-    builder.Services.AddScoped<IEventHandler<OrderCancelledEvent>, OrderCancelledEventHandler>();
+    // Event handlers   
+
+    new EventDispatcherBuilder(builder.Services)
+        .Register<OrderPlacedEvent, OrderPlacedEventHandler>("order.placed")
+        .Register<OrderCancelledEvent, OrderCancelledEventHandler>("order.cancelled")
+        .Build();
 
     // SQS consumer — runs in background
     builder.Services.AddHostedService<SqsEventConsumer>();

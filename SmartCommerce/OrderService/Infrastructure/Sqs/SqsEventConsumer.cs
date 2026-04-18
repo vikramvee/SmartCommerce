@@ -12,6 +12,7 @@ public sealed class SqsEventConsumer : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly SqsSettings _settings;
+    private readonly IEventDispatcher _dispatcher;  
     private readonly ILogger<SqsEventConsumer> _logger;
 
     private static readonly JsonSerializerOptions _jsonOptions = new()
@@ -22,10 +23,12 @@ public sealed class SqsEventConsumer : BackgroundService
     public SqsEventConsumer(
         IServiceScopeFactory scopeFactory,
         IOptions<SqsSettings> settings,
+        IEventDispatcher dispatcher,                
         ILogger<SqsEventConsumer> logger)
     {
         _scopeFactory = scopeFactory;
         _settings     = settings.Value;
+        _dispatcher   = dispatcher;                  
         _logger       = logger;
     }
 
@@ -110,11 +113,12 @@ public sealed class SqsEventConsumer : BackgroundService
                     "Processing SQS message. EventType: {EventType}, SNS MessageId: {MessageId}",
                     eventType, envelope.MessageId);
 
-                await DispatchEventAsync(scope, eventType, envelope.Message, ct);
-                await sqs.DeleteMessageAsync(_settings.OrdersQueueUrl, message.ReceiptHandle, ct);
+            // Add:
+            await _dispatcher.DispatchAsync(eventType, envelope.Message, scope, ct);
+            await sqs.DeleteMessageAsync(_settings.OrdersQueueUrl, message.ReceiptHandle, ct);
 
-                _logger.LogInformation(
-                    "SQS message processed and deleted. EventType: {EventType}", eventType);
+            _logger.LogInformation(
+                "SQS message processed and deleted. EventType: {EventType}", eventType);
             }
         }
         catch (Exception ex)
@@ -122,42 +126,5 @@ public sealed class SqsEventConsumer : BackgroundService
             _logger.LogError(ex,
                 "Failed to process SQS message {MessageId}. Will retry.", message.MessageId);
         }
-    }
-
-    private static async Task DispatchEventAsync(
-        IServiceScope scope,
-        string eventType,
-        string payload,
-        CancellationToken ct)
-    {
-        switch (eventType)
-        {
-            case "order.placed":
-            {
-                var domainEvent = JsonSerializer.Deserialize<OrderPlacedEvent>(payload, _jsonOptions);
-                if (domainEvent is not null)
-                {
-                    var handler = scope.ServiceProvider
-                        .GetRequiredService<IEventHandler<OrderPlacedEvent>>();
-                    await handler.HandleAsync(domainEvent, ct);
-                }
-                break;
-            }
-
-            case "order.cancelled":
-            {
-                var domainEvent = JsonSerializer.Deserialize<OrderCancelledEvent>(payload, _jsonOptions);
-                if (domainEvent is not null)
-                {
-                    var handler = scope.ServiceProvider
-                        .GetRequiredService<IEventHandler<OrderCancelledEvent>>();
-                    await handler.HandleAsync(domainEvent, ct);
-                }
-                break;
-            }
-
-            default:
-                break;
-        }
-    }
+    }    
 }
