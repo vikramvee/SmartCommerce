@@ -56,3 +56,41 @@ echo "Done. Resources created:"
 echo "  SNS Topic ARN : $TOPIC_ARN"
 echo "  SQS Queue URL : $QUEUE_URL"
 echo "  SQS Queue ARN : $QUEUE_ARN"
+
+echo "Creating SQS queue (notifications)..."
+aws sqs create-queue \
+  --queue-name smartcommerce-notifications-queue \
+  --endpoint-url $ENDPOINT \
+  --region $REGION
+
+echo "Creating SQS dead-letter queue (notifications)..."
+aws sqs create-queue \
+  --queue-name smartcommerce-notifications-dlq \
+  --endpoint-url $ENDPOINT \
+  --region $REGION
+
+NOTIFICATIONS_QUEUE_URL=$(aws sqs get-queue-url \
+  --queue-name smartcommerce-notifications-queue \
+  --endpoint-url $ENDPOINT \
+  --region $REGION \
+  --query QueueUrl \
+  --output text)
+
+NOTIFICATIONS_QUEUE_ARN=$(aws sqs get-queue-attributes \
+  --queue-url $NOTIFICATIONS_QUEUE_URL \
+  --attribute-names QueueArn \
+  --endpoint-url $ENDPOINT \
+  --region $REGION \
+  --query Attributes.QueueArn \
+  --output text)
+
+echo "Subscribing notifications queue to SNS topic..."
+aws sns subscribe \
+  --topic-arn $TOPIC_ARN \
+  --protocol sqs \
+  --notification-endpoint $NOTIFICATIONS_QUEUE_ARN \
+  --endpoint-url $ENDPOINT \
+  --region $REGION
+
+echo "  Notifications Queue URL : $NOTIFICATIONS_QUEUE_URL"
+echo "  Notifications Queue ARN : $NOTIFICATIONS_QUEUE_ARN"
