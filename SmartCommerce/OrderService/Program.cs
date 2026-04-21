@@ -197,4 +197,8 @@ finally
     Log.CloseAndFlush();
 }
 
+
 return 0;
+
+// Make Program visible to integration tests
+public partial class Program { }
