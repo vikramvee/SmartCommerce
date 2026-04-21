@@ -16,6 +16,7 @@ public sealed record OrderPlacedEvent : DomainEvent,ITenantEvent
 public record OrderLineItem
 {
     public string ProductId { get; init; } = default!;
+    public string ProductName { get; init; } = default!;
     public int Quantity { get; init; }
     public decimal UnitPrice { get; init; }
 }

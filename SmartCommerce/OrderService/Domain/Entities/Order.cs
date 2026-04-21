@@ -43,9 +43,16 @@ public sealed class Order : AggregateRoot
 
         order.RaiseDomainEvent(new OrderPlacedEvent
         {
-            OrderId = order.OrderId,
-            TenantId = order.TenantId,
-            TotalAmount = order.Total
+            OrderId    = order.OrderId,
+            TenantId   = order.TenantId,
+            CustomerId = order.CustomerId,
+            TotalAmount = order.Total,
+            Items      = order._items.Select(i => new Orders.Events.OrderLineItem
+            {
+                ProductId = i.ProductId,
+                Quantity  = i.Quantity,
+                UnitPrice = i.UnitPrice
+            }).ToList()
         });
 
         return order;

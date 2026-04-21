@@ -94,3 +94,42 @@ aws sns subscribe \
 
 echo "  Notifications Queue URL : $NOTIFICATIONS_QUEUE_URL"
 echo "  Notifications Queue ARN : $NOTIFICATIONS_QUEUE_ARN"
+
+
+echo "Creating SQS queue (inventory)..."
+aws sqs create-queue \
+  --queue-name smartcommerce-inventory-queue \
+  --endpoint-url $ENDPOINT \
+  --region $REGION
+
+echo "Creating SQS dead-letter queue (inventory)..."
+aws sqs create-queue \
+  --queue-name smartcommerce-inventory-dlq \
+  --endpoint-url $ENDPOINT \
+  --region $REGION
+
+INVENTORY_QUEUE_URL=$(aws sqs get-queue-url \
+  --queue-name smartcommerce-inventory-queue \
+  --endpoint-url $ENDPOINT \
+  --region $REGION \
+  --query QueueUrl \
+  --output text)
+
+INVENTORY_QUEUE_ARN=$(aws sqs get-queue-attributes \
+  --queue-url $INVENTORY_QUEUE_URL \
+  --attribute-names QueueArn \
+  --endpoint-url $ENDPOINT \
+  --region $REGION \
+  --query Attributes.QueueArn \
+  --output text)
+
+echo "Subscribing inventory queue to SNS topic..."
+aws sns subscribe \
+  --topic-arn $TOPIC_ARN \
+  --protocol sqs \
+  --notification-endpoint $INVENTORY_QUEUE_ARN \
+  --endpoint-url $ENDPOINT \
+  --region $REGION
+
+echo "  Inventory Queue URL : $INVENTORY_QUEUE_URL"
+echo "  Inventory Queue ARN : $INVENTORY_QUEUE_ARN"

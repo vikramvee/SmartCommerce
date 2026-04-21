@@ -1,41 +1,67 @@
-var builder = WebApplication.CreateBuilder(args);
+using Amazon.SQS;
+using InventoryService.Handlers;
+using InventoryService.Infrastructure;
+using InventoryService.Workers;
+using Serilog;
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+Log.Logger = new LoggerConfiguration()
+    .WriteTo.Console()
+    .CreateBootstrapLogger();
 
-var app = builder.Build();
+Log.Information("Starting InventoryService...");
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+try
 {
-    app.MapOpenApi();
+    var builder = WebApplication.CreateBuilder(args);
+
+    // Serilog
+    builder.Host.UseSerilog((ctx, services, cfg) =>
+        cfg.ReadFrom.Configuration(ctx.Configuration)
+           .ReadFrom.Services(services)
+           .Enrich.FromLogContext()
+           .Enrich.WithProperty("Service", "InventoryService"));
+
+    // SQS
+    builder.Services.Configure<SqsSettings>(
+        builder.Configuration.GetSection(SqsSettings.SectionName));
+
+    builder.Services.AddSingleton<IAmazonSQS>(_ =>
+    {
+        var settings = builder.Configuration
+            .GetSection(SqsSettings.SectionName)
+            .Get<SqsSettings>();
+
+        var config = new AmazonSQSConfig
+        {
+            RegionEndpoint = Amazon.RegionEndpoint.USEast1
+        };
+
+        if (!string.IsNullOrEmpty(settings?.ServiceURL))
+            config.ServiceURL = settings.ServiceURL;
+
+        return new AmazonSQSClient("local", "local", config);
+    });
+
+    // Handler + Worker
+    builder.Services.AddSingleton<InventoryReservationHandler>();
+    builder.Services.AddHostedService<InventoryConsumerWorker>();
+
+    builder.Services.AddHealthChecks();
+
+    var app = builder.Build();
+
+    app.UseSerilogRequestLogging();
+    app.MapHealthChecks("/health");
+    app.Run();
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "InventoryService failed to start.");
+    return 1;
+}
+finally
+{
+    Log.CloseAndFlush();
 }
 
-app.UseHttpsRedirection();
-
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
-
-app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
+return 0;
