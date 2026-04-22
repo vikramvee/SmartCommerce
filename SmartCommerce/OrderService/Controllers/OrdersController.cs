@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using MediatR;
 using OrderService.Application.Commands;
+using OrderService.Infrastructure.Tenancy;
 
 namespace OrderService.Controllers;
 
@@ -9,11 +10,13 @@ public class OrdersController : ControllerBase
 {
     private readonly IMediator _mediator;
     private readonly ILogger<OrdersController> _logger;
+    private readonly ITenantContext _tenantContext;  
 
-    public OrdersController(IMediator mediator, ILogger<OrdersController> logger)
+    public OrdersController(IMediator mediator, ILogger<OrdersController> logger, ITenantContext tenantContext)
     {
         _mediator = mediator;
         _logger   = logger;
+        _tenantContext = tenantContext;
     }
 
     [HttpGet("health-check")]
@@ -33,13 +36,8 @@ public class OrdersController : ControllerBase
         [FromBody] PlaceOrderRequest request,
         CancellationToken cancellationToken)
     {
-        var tenantId = Request.Headers["X-Tenant-Id"].FirstOrDefault()
-            ?? "tenant-alpha";
-
-        Console.WriteLine($"DEBUG TenantId: '{tenantId}'");
-
         var command = new PlaceOrderCommand(
-            tenantId,
+            _tenantContext.TenantId,
             request.CustomerId,
             request.Items.Select(i => new PlaceOrderItemDto(
                 i.ProductId,

@@ -16,6 +16,7 @@ using OrderService.Application.EventHandlers;
 using OrderService.Infrastructure.Correlation;
 using OrderService.Infrastructure.Idempotency;
 using OrderService.Application.Dispatching;
+using OrderService.Infrastructure.Tenancy;
 
 // ─── Bootstrap logger (catches startup errors) ───────────────────────────────
 Log.Logger = new LoggerConfiguration()
@@ -43,6 +44,9 @@ try
 
 
     builder.Services.AddScoped<CorrelationIdAccessor>();
+
+    builder.Services.AddScoped<TenantContext>();
+    builder.Services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<TenantContext>());
 
     // ─── AWS + DynamoDB ───────────────────────────────────────────────────────    
     builder.Services.Configure<DynamoDbSettings>(builder.Configuration.GetSection(DynamoDbSettings.SectionName));
@@ -170,6 +174,9 @@ try
     });
 
     app.UseMiddleware<CorrelationIdMiddleware>();
+
+    app.UseMiddleware<CorrelationIdMiddleware>();
+    app.UseMiddleware<TenantMiddleware>();   // ← add this line
 
     if (app.Environment.IsDevelopment())
     {
