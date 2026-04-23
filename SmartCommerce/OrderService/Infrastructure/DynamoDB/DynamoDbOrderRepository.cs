@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using OrderService.Application.Interfaces;
 using OrderService.Domain.Entities;
 using OrderService.Infrastructure.Outbox;
+using OrderService.Infrastructure.Tenancy;
 
 
 namespace OrderService.Infrastructure.DynamoDB;
@@ -35,7 +36,14 @@ public sealed class DynamoDbOrderRepository : IOrderRepository
         if (!response.IsItemSet) return null;
 
         var model = AttributeValueMapper.ToOrderModel(response.Item);
-        return OrderMapper.ToDomain(model);
+        var order = OrderMapper.ToDomain(model);
+
+        // ← Defence-in-depth: reject if tenant mismatch (should never happen,
+        //   but guards against PK construction bugs)
+        if (!string.Equals(order.TenantId, tenantId, StringComparison.Ordinal))
+            throw new TenantIsolationException(tenantId, order.TenantId);
+
+        return order;
     }
 
     public async Task<IReadOnlyList<Order>> GetByTenantAsync(string tenantId, CancellationToken ct = default)
