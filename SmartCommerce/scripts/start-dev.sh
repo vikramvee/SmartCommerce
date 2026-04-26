@@ -25,9 +25,24 @@ echo "LocalStack ready."
 echo "Creating SNS/SQS resources..."
 bash scripts/create-sns-sqs.sh
 
-docker compose up -d
+#docker compose up -d
 
-echo "Dev environment ready!"
+echo ""
+echo "✅ Dev environment ready!"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "  DynamoDB Local:  http://localhost:8000"
 echo "  DynamoDB Admin:  http://localhost:8001"
-echo "  LocalStack     : http://localhost:4566"
+echo "  LocalStack:      http://localhost:4566"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "▶ Start services in separate terminals:"
+echo ""
+echo "  Terminal 1 — OrderService:"
+echo "  dotnet run --project SmartCommerce/OrderService/OrderService.csproj"
+echo ""
+echo "  Terminal 2 — InventoryService:"
+echo "  dotnet run --project SmartCommerce/InventoryService/InventoryService.csproj"
+echo ""
+echo "  Terminal 3 — NotificationService (if needed):"
+echo "  dotnet run --project SmartCommerce/NotificationService/NotificationService.csproj"
+echo ""

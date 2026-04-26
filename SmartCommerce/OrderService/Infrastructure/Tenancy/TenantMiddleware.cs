@@ -9,6 +9,13 @@ public sealed class TenantMiddleware
 
     public async Task InvokeAsync(HttpContext context, TenantContext tenantContext)
     {
+        // Skip tenant check for health endpoints
+        if (context.Request.Path.StartsWithSegments("/health"))
+        {
+            await _next(context);
+            return;
+        }
+        
         var tenantId = context.Request.Headers[HeaderName].FirstOrDefault();
 
         if (string.IsNullOrWhiteSpace(tenantId))

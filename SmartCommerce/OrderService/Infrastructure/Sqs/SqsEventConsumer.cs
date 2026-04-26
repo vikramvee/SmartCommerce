@@ -60,8 +60,8 @@ public sealed class SqsEventConsumer : BackgroundService
         {
             QueueUrl            = _settings.OrdersQueueUrl,
             MaxNumberOfMessages = 10,
-            WaitTimeSeconds     = 20,
-            MessageAttributeNames = new List<string> { "All" },
+            WaitTimeSeconds     = 20,          
+            MessageSystemAttributeNames = ["All"],
             AttributeNames        = new List<string> { "All" }
         }, ct);
 

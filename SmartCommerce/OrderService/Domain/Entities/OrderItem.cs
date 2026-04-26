@@ -3,8 +3,9 @@ namespace OrderService.Domain.Entities;
 public sealed class OrderItem
 {
     public Guid ItemId { get; private set; }
-    public string ProductId { get; private set; }
-    public string ProductName { get; private set; }
+// OrderItem.cs
+    public required string ProductId { get; init; }
+    public required string ProductName { get; init; }   
     public int Quantity { get; private set; }
     public decimal UnitPrice { get; private set; }
     public decimal LineTotal => UnitPrice * Quantity;

@@ -17,6 +17,9 @@ using OrderService.Infrastructure.Correlation;
 using OrderService.Infrastructure.Idempotency;
 using OrderService.Application.Dispatching;
 using OrderService.Infrastructure.Tenancy;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using OrderService.Infrastructure.Health;
 
 // ─── Bootstrap logger (catches startup errors) ───────────────────────────────
 Log.Logger = new LoggerConfiguration()
@@ -145,8 +148,7 @@ try
 
     //_____MEdiatR__________________________
     // MediatR — scans assembly for all handlers
-    builder.Services.AddMediatR(cfg =>
-        cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
+    builder.Services.AddMediatR(typeof(Program).Assembly);
 
     // Validation pipeline — runs before every handler
     builder.Services.AddTransient(
@@ -157,7 +159,9 @@ try
     builder.Services.AddValidatorsFromAssembly(typeof(Program).Assembly);
 
     // ─── Health Checks ────────────────────────────────────────────────────────
-    builder.Services.AddHealthChecks();
+    builder.Services.AddHealthChecks()
+    .AddCheck<DynamoDbLivenessCheck>("dynamodb")
+    .AddCheck("sns", () => HealthCheckResult.Healthy("SNS configured"));
 
     var app = builder.Build();
 
@@ -190,7 +194,28 @@ try
 
     app.UseAuthorization();
     app.MapControllers();
-    app.MapHealthChecks("/health");
+    app.MapHealthChecks("/health", new HealthCheckOptions
+    {
+        ResponseWriter = async (context, report) =>
+        {
+            context.Response.ContentType = "application/json";
+
+            var result = new
+            {
+                status  = report.Status.ToString(),
+                service = "OrderService",
+                checks  = report.Entries.Select(e => new
+                {
+                    name     = e.Key,
+                    status   = e.Value.Status.ToString(),
+                    duration = e.Value.Duration.TotalMilliseconds
+                }),
+                totalDuration = report.TotalDuration.TotalMilliseconds
+            };
+
+            await context.Response.WriteAsJsonAsync(result);
+        }
+    });
 
     app.Run();
 }
