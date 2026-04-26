@@ -87,6 +87,14 @@ public sealed class InventoryConsumerWorker : BackgroundService
                 ?.GetValueOrDefault("CorrelationId")?.Value
                 ?? Guid.NewGuid().ToString();
 
+            var tenantId = envelope.MessageAttributes
+                ?.GetValueOrDefault("TenantId")?.Value
+                ?? "unknown";
+            if (tenantId == "unknown")
+                _logger.LogWarning("Message {MessageId} missing TenantId attribute", message.MessageId);
+
+          
+            using (Serilog.Context.LogContext.PushProperty("CorrelationId", correlationId))
             using (Serilog.Context.LogContext.PushProperty("CorrelationId", correlationId))
             {
                 _logger.LogInformation(
