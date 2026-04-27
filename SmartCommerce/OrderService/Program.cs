@@ -20,6 +20,8 @@ using OrderService.Infrastructure.Tenancy;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using OrderService.Infrastructure.Health;
+using OrderService.Infrastructure.AI;
+using Amazon.BedrockRuntime;
 
 // ─── Bootstrap logger (catches startup errors) ───────────────────────────────
 Log.Logger = new LoggerConfiguration()
@@ -93,6 +95,21 @@ try
         return new AmazonSimpleNotificationServiceClient("local", "local", config);
     });
 
+    // ─── Bedrock / AI ─────────────────────────────────────────────────────────
+    builder.Services.Configure<BedrockOptions>(
+        builder.Configuration.GetSection("Bedrock"));
+
+    var useStub = builder.Configuration.GetValue<bool>("Bedrock:UseStub");
+    if (useStub)
+    {
+        builder.Services.AddSingleton<IAnomalyDetectionService, StubAnomalyDetectionService>();
+    }
+    else
+    {
+        builder.Services.AddAWSService<IAmazonBedrockRuntime>();
+        builder.Services.AddSingleton<IAnomalyDetectionService, BedrockAnomalyDetectionService>();
+    }
+
     // SQS client
     builder.Services.Configure<SqsSettings>(
         builder.Configuration.GetSection(SqsSettings.SectionName));
@@ -157,6 +174,10 @@ try
 
     // FluentValidation — scans assembly for all validators
     builder.Services.AddValidatorsFromAssembly(typeof(Program).Assembly);
+
+    builder.Services.AddTransient(
+    typeof(IPipelineBehavior<,>),
+    typeof(AnomalyDetectionBehaviour<,>));
 
     // ─── Health Checks ────────────────────────────────────────────────────────
     builder.Services.AddHealthChecks()

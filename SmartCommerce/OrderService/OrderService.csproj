@@ -7,8 +7,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="AWSSDK.BedrockRuntime" Version="4.0.17.5" />
     <PackageReference Include="AWSSDK.DynamoDBv2" Version="4.0.17.7" />
-    <PackageReference Include="AWSSDK.Extensions.NETCore.Setup" Version="4.0.3.31" />
+    <PackageReference Include="AWSSDK.Extensions.NETCore.Setup" Version="4.0.3.35" />
     <PackageReference Include="AWSSDK.SimpleNotificationService" Version="4.0.2.27" />
     <PackageReference Include="AWSSDK.SQS" Version="4.0.2.25" />
     <PackageReference Include="FluentValidation" Version="12.1.1" />
