@@ -133,3 +133,55 @@ aws sns subscribe \
 
 echo "  Inventory Queue URL : $INVENTORY_QUEUE_URL"
 echo "  Inventory Queue ARN : $INVENTORY_QUEUE_ARN"
+
+echo "Creating order triage queue..."
+aws sqs create-queue \
+  --queue-name smartcommerce-triage-dlq \
+  --endpoint-url $ENDPOINT \
+  --region $REGION
+
+TRIAGE_DLQ_URL=$(aws sqs get-queue-url \
+  --queue-name smartcommerce-triage-dlq \
+  --endpoint-url $ENDPOINT \
+  --region $REGION \
+  --query QueueUrl \
+  --output text)
+
+TRIAGE_DLQ_ARN=$(aws sqs get-queue-attributes \
+  --queue-url $TRIAGE_DLQ_URL \
+  --attribute-names QueueArn \
+  --endpoint-url $ENDPOINT \
+  --region $REGION \
+  --query Attributes.QueueArn \
+  --output text)
+
+aws sqs create-queue \
+  --queue-name smartcommerce-triage-queue \
+  --attributes "{\"RedrivePolicy\":\"{\\\"deadLetterTargetArn\\\":\\\"$TRIAGE_DLQ_ARN\\\",\\\"maxReceiveCount\\\":\\\"3\\\"}\"}" \
+  --endpoint-url $ENDPOINT \
+  --region $REGION
+
+TRIAGE_QUEUE_URL=$(aws sqs get-queue-url \
+  --queue-name smartcommerce-triage-queue \
+  --endpoint-url $ENDPOINT \
+  --region $REGION \
+  --query QueueUrl \
+  --output text)
+
+TRIAGE_QUEUE_ARN=$(aws sqs get-queue-attributes \
+  --queue-url $TRIAGE_QUEUE_URL \
+  --attribute-names QueueArn \
+  --endpoint-url $ENDPOINT \
+  --region $REGION \
+  --query Attributes.QueueArn \
+  --output text)
+
+aws sns subscribe \
+  --topic-arn $TOPIC_ARN \
+  --protocol sqs \
+  --notification-endpoint $TRIAGE_QUEUE_ARN \
+  --endpoint-url $ENDPOINT \
+  --region $REGION
+
+echo "  Triage Queue URL : $TRIAGE_QUEUE_URL"
+echo "  Triage Queue ARN : $TRIAGE_QUEUE_ARN"

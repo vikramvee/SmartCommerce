@@ -7,7 +7,7 @@ public sealed record PlaceOrderCommand(
     string TenantId,
     string CustomerId,
     List<PlaceOrderItemDto> Items
-) : IRequest<PlaceOrderResult>
+) : IRequest<PlaceOrderResult>, IOrderCommand
 {
     public Order ToOrder() => Order.Create(
         TenantId,

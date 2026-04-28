@@ -23,7 +23,7 @@ public sealed class EventDispatcher : IEventDispatcher
     {
         if (!_registry.TryGetValue(eventType, out var wrapper))
         {
-            _logger.LogWarning("No handler registered for event type: {EventType}", eventType);
+            _logger.LogDebug("No handler registered for event type: {EventType}", eventType);
             return;
         }
 

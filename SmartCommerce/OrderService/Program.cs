@@ -22,6 +22,8 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using OrderService.Infrastructure.Health;
 using OrderService.Infrastructure.AI;
 using Amazon.BedrockRuntime;
+using OrderService.Domain.AI;
+using OrderService.Infrastructure.Triage;
 
 // ─── Bootstrap logger (catches startup errors) ───────────────────────────────
 Log.Logger = new LoggerConfiguration()
@@ -103,12 +105,17 @@ try
     if (useStub)
     {
         builder.Services.AddSingleton<IAnomalyDetectionService, StubAnomalyDetectionService>();
+        builder.Services.AddSingleton<IOrderTriageAgent, StubOrderTriageAgent>();
     }
     else
     {
         builder.Services.AddAWSService<IAmazonBedrockRuntime>();
         builder.Services.AddSingleton<IAnomalyDetectionService, BedrockAnomalyDetectionService>();
+        builder.Services.AddSingleton<IOrderTriageAgent, BedrockOrderTriageAgent>();
     }
+
+    // Triage consumer — runs in background
+    builder.Services.AddHostedService<OrderTriageConsumer>();
 
     // SQS client
     builder.Services.Configure<SqsSettings>(
